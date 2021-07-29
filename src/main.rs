@@ -30,22 +30,15 @@ fn main() -> Result<(), Error> {
 
         // buffer
         let mut data = [0 as u8; 1024];
+        // We need stdout as we may print direct BINARY data
+        let mut out = std::io::stdout();
         loop {
-            match stream.read(&mut data) {
-                Ok(size) => {
-                    if size == 0 {
-                        // Means goodbye
-                        break;
-                    }
-                    let mut out = std::io::stdout();
-                    out.write_all(&data[..size])?;
-                    out.flush()?;
-                }
-                Err(err) => {
-                    println!("{:?}", err);
-                    break;
-                }
+            let bytes_read = stream.read(&mut data)?;
+            if bytes_read == 0 {
+                break;
             }
+            out.write_all(&data[..bytes_read])?;
+            out.flush()?;
         }
     }
     Ok(())
