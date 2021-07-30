@@ -29,7 +29,7 @@ fn main() -> Result<(), Error> {
         let (mut stream, _addr) = listener.accept()?;
 
         // buffer
-        let mut data = [0 as u8; 1024];
+        let mut data = [0_u8; 1024];
         // We need stdout as we may print direct BINARY data
         let mut out = std::io::stdout();
         loop {
