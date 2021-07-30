@@ -20,6 +20,7 @@ fn main() -> Result<(), Error> {
     // let us see the arugments
     let listen = matches.value_of("listen").unwrap_or("0");
 
+    // If we have to listen
     if listen != "0" {
         // Let us listen to the given port
         //
@@ -40,6 +41,9 @@ fn main() -> Result<(), Error> {
             out.write_all(&data[..bytes_read])?;
             out.flush()?;
         }
+        // All done, now return
+        return Ok(());
+
     }
     Ok(())
 }
