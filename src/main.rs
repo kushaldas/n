@@ -35,9 +35,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let us see the arugments
     let listen = matches.value_of("listen").unwrap_or("0");
 
-    // buffer
-    let mut reader_buf = [0_u8; 1024];
-    let mut writer_buf = [0_u8; 1024];
     // If we have to listen
     let mut stream = if listen != "0" {
         // Let us listen to the given port
@@ -88,23 +85,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (mut tx, mut rx) = stream.split();
 
+    // buffer
+    let mut reader_buf = [0_u8; 1024];
+    let mut writer_buf = [0_u8; 1024];
+
+    // For input/output
     let mut out = tokio::io::stdout();
     let mut stdin = tokio::io::stdin();
+
     loop {
         tokio::select! {
-            bytes_read = tx.read(&mut reader_buf) =>{
+            bytes_read = tx.read(&mut reader_buf) => {
                 let actual_read = bytes_read.unwrap();
                 if actual_read == 0 {
                     // Means nothing to read
                     // End of loop
                     out.flush().await?;
+                    // The following break will not work
+                    // Read https://github.com/tokio-rs/tokio/issues/2318 for more details
                     break;
                 } else {
                     out.write_all(&reader_buf[..actual_read]).await?;
                     out.flush().await?;
                 }
             }
-            bytes_read = stdin.read(&mut writer_buf) => {
+            bytes_read = stdin.read(&mut writer_buf[..]) => {
                 let actual_read = bytes_read.unwrap();
                 if actual_read == 0 {
                     break;
@@ -112,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     rx.write_all(&writer_buf[..actual_read]).await?;
                 }
             }
-        }
+        };
     }
 
     Ok(())
