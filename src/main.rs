@@ -1,9 +1,12 @@
-use std::io::{self, Error, Read, Write};
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream, ToSocketAddrs};
+use std::io::{self, Read, Write};
+use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate clap;
 use clap::{App, Arg};
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = App::new("To learn programming once agian")
         .version("0.1.0")
         .author("Kushal Das <mail@kushaldas.in>")
@@ -40,14 +43,15 @@ fn main() -> Result<(), Error> {
         //
         let ip = Ipv4Addr::new(0, 0, 0, 0);
         let socket = SocketAddrV4::new(ip, listen.parse::<u16>().unwrap());
-        let listener = TcpListener::bind(socket)?;
-        let (mut stream, _addr) = listener.accept()?;
+        let listener = TcpListener::bind(socket).await?;
+        let (mut stream, _addr) = listener.accept().await?;
 
         // We need stdout as we may print direct BINARY data
         let mut out = std::io::stdout();
         loop {
-            let bytes_read = stream.read(&mut data)?;
+            let bytes_read = stream.read(&mut data).await?;
             if bytes_read == 0 {
+                out.flush()?;
                 break;
             }
             out.write_all(&data[..bytes_read])?;
@@ -89,12 +93,12 @@ fn main() -> Result<(), Error> {
     let _socket = ip_addrs.next().unwrap();
     dbg!(_socket);
 
-    let mut stream = TcpStream::connect(_socket)?;
+    let mut stream = TcpStream::connect(_socket).await?;
 
     loop {
         match io::stdin().read(&mut data) {
             Ok(bytes_read) => {
-                stream.write_all(&data[..bytes_read])?;
+                stream.write_all(&data[..bytes_read]).await?;
             }
             Err(_) => {
                 break;
