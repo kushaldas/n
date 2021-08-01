@@ -1,15 +1,21 @@
+use std::io::Read;
 use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs};
+use std::thread;
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-extern crate clap;
-use clap::{App, Arg};
-use std::io::Read;
-
-use std::thread;
 use tokio::runtime::Runtime;
+
+use clap::{App, Arg};
+extern crate pretty_env_logger;
+#[macro_use]
+extern crate log;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Enable logging
+    pretty_env_logger::init();
+
     let matches = App::new("To learn programming once agian")
         .version("0.1.0")
         .author("Kushal Das <mail@kushaldas.in>")
@@ -79,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // The ip address to connect to
         let _socket = ip_addrs.next().unwrap();
-        dbg!(_socket);
+        debug!("Connecting to: {:#?}", _socket.clone());
 
         let stream = TcpStream::connect(_socket).await?;
         stream
@@ -94,13 +100,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut out = tokio::io::stdout();
 
     let _task = thread::spawn(move || {
-        //dbg!("We will read now");
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
+            let mut writer_buf = [0_u8; 1024];
             loop {
-                let mut writer_buf = [0_u8; 1024];
                 let actual_read = std::io::stdin().read(&mut writer_buf).unwrap();
-                dbg!(actual_read);
                 if actual_read == 0 {
                     break;
                 } else {
@@ -109,8 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
-        //rt.shutdown_background();
-        dbg!("child thread ends");
+        debug!("child thread ends");
     });
 
     loop {
@@ -132,6 +135,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
     }
 
-    dbg!("Main thread ends");
+    debug!("Main thread ends");
     Ok(())
 }
