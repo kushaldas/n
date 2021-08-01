@@ -117,22 +117,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     loop {
-        tokio::select! {
-            bytes_read = tx.read(&mut reader_buf) => {
-                let actual_read = bytes_read.unwrap();
-                if actual_read == 0 {
-                    // Means nothing to read
-                    // End of loop
-                    out.flush().await?;
-                    // The following break will not work
-                    // Read https://github.com/tokio-rs/tokio/issues/2318 for more details
-                    break;
-                } else {
-                    out.write_all(&reader_buf[..actual_read]).await?;
-                    out.flush().await?;
-                }
-            }
-        };
+        let actual_read = tx.read(&mut reader_buf).await?;
+        if actual_read == 0 {
+            // Means nothing to read
+            // End of loop
+            out.flush().await?;
+            break;
+        } else {
+            out.write_all(&reader_buf[..actual_read]).await?;
+            out.flush().await?;
+        }
     }
 
     debug!("Main thread ends");
