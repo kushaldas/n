@@ -1,9 +1,12 @@
-use std::io::Write;
 use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 extern crate clap;
 use clap::{App, Arg};
+use std::io::Read;
+
+use std::thread;
+use tokio::runtime::Runtime;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -36,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listen = matches.value_of("listen").unwrap_or("0");
 
     // If we have to listen
-    let mut stream = if listen != "0" {
+    let stream = if listen != "0" {
         // Let us listen to the given port
         //
         let ip = Ipv4Addr::new(0, 0, 0, 0);
@@ -44,7 +47,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let listener = TcpListener::bind(socket).await?;
         let (stream, _addr) = listener.accept().await?;
         stream
-
     } else {
         // We will try to connect to the given domain/ip.
         let domain = match matches.value_of("domain") {
@@ -83,15 +85,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         stream
     };
 
-    let (mut tx, mut rx) = stream.split();
+    let (mut tx, mut rx) = stream.into_split();
 
     // buffer
     let mut reader_buf = [0_u8; 1024];
-    let mut writer_buf = [0_u8; 1024];
 
     // For input/output
     let mut out = tokio::io::stdout();
-    let mut stdin = tokio::io::stdin();
+
+    let _task = thread::spawn(move || {
+        //dbg!("We will read now");
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            loop {
+                let mut writer_buf = [0_u8; 1024];
+                let actual_read = std::io::stdin().read(&mut writer_buf).unwrap();
+                dbg!(actual_read);
+                if actual_read == 0 {
+                    break;
+                } else {
+                    rx.write_all(&writer_buf[..actual_read]).await.unwrap();
+                }
+            }
+        });
+
+        //rt.shutdown_background();
+        dbg!("child thread ends");
+    });
 
     loop {
         tokio::select! {
@@ -109,16 +129,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     out.flush().await?;
                 }
             }
-            bytes_read = stdin.read(&mut writer_buf[..]) => {
-                let actual_read = bytes_read.unwrap();
-                if actual_read == 0 {
-                    break;
-                } else {
-                    rx.write_all(&writer_buf[..actual_read]).await?;
-                }
-            }
         };
     }
 
+    dbg!("Main thread ends");
     Ok(())
 }
